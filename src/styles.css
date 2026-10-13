@@ -73,6 +73,10 @@ button:disabled { cursor: wait; opacity: .55; }
 .empty-box { color: var(--gray); background: var(--ivory); }
 .error-box { color: #7d1d1d; background: #fff0f0; }
 .success-note { color: #245c15; background: #efffe0; }
+.dashboard-bars { display: flex; align-items: end; gap: 12px; min-height: 190px; padding: 18px 8px 4px; border-bottom: 1px solid var(--line); }
+.dashboard-bar-column { display: flex; min-width: 0; flex: 1; height: 170px; flex-direction: column; align-items: center; justify-content: end; gap: 7px; }
+.dashboard-bar { width: min(34px, 75%); min-height: 6px; border-radius: 8px 8px 2px 2px; background: var(--lime); box-shadow: inset 0 -1px 0 rgba(17,17,17,.15); }
+.dashboard-bar-column small { color: var(--gray); font-size: .72rem; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; min-width: 560px; border-collapse: collapse; }
 th, td { padding: 12px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; }
