@@ -23,7 +23,33 @@ function RecordList({ title, items, error, onEdit, onDelete }: { title: string; 
 
 const crud: Record<string, readonly [string, string, string, string, readonly string[]]> = { categories: ['الأقسام', 'تنظيم المتجر', 'إضافة وتعديل وإخفاء وترتيب الأقسام.', 'public/categories', ['name', 'description', 'order', 'visible']], discounts: ['الخصومات', 'العروض', 'إدارة العروض والكوبونات.', 'public/discounts', ['name', 'code', 'value', 'active']], inventory: ['المخزون', 'التشغيل', 'إدارة الورود والمواد والكميات.', 'private/inventory', ['name', 'quantity', 'unit', 'reorderLevel']], delivery: ['التوصيل', 'الخدمة', 'إدارة المحافظات والمناطق وأسعار التوصيل.', 'public/delivery', ['name', 'areas', 'price', 'active']], staff: ['الموظفون والصلاحيات', 'الوصول', 'إدارة سجلات الموظفين وصلاحياتهم.', 'private/staff', ['uid', 'email', 'displayName', 'role', 'active']], payments: ['معلومات الدفع والتحويل', 'الدفع', 'إدارة وسائل الدفع المنشورة للزبون. لا تحفظ PIN أو CVV أو تاريخ انتهاء البطاقة.', 'public/paymentMethods', ['name', 'type', 'recipient', 'instructions', 'provinces', 'enabled', 'order']] }
 export function CategoriesPage() { return <CollectionPage config={crud.categories} /> }
-export function DiscountsPage() { return <CollectionPage config={crud.discounts} /> }
+type DiscountForm = { name: string; code: string; scope: string; productId: string; categoryId: string; discountType: string; value: string; minOrderTotal: string; maxDiscount: string; maxUses: string; startsAt: string; endsAt: string; active: boolean }
+const emptyDiscount: DiscountForm = { name: '', code: '', scope: 'ALL', productId: '', categoryId: '', discountType: 'PERCENT', value: '', minOrderTotal: '', maxDiscount: '', maxUses: '', startsAt: '', endsAt: '', active: true }
+export function DiscountsPage() {
+  const { items, error } = useMap<Row>(pathFor('public/discounts'))
+  const [id, setId] = useState<string | null>(null)
+  const [form, setForm] = useState<DiscountForm>(emptyDiscount)
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const set = (key: keyof DiscountForm, value: string | boolean) => setForm(current => ({ ...current, [key]: value }))
+  const reset = () => { setId(null); setForm({ ...emptyDiscount }); setMessage('') }
+  const save = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true); setMessage('')
+    try {
+      const value = Number(form.value)
+      if (!form.name.trim() || !form.code.trim() || !Number.isFinite(value) || value < 0) throw new Error('أدخل الاسم والكود وقيمة خصم صحيحة.')
+      const data: Record<string, unknown> = { name: form.name.trim(), code: form.code.trim().toUpperCase(), scope: form.scope, discountType: form.discountType, value, active: form.active }
+      if (form.productId.trim()) data.productId = form.productId.trim()
+      if (form.categoryId.trim()) data.categoryId = form.categoryId.trim()
+      for (const field of ['minOrderTotal', 'maxDiscount', 'maxUses'] as const) { if (form[field].trim()) { const numeric = Number(form[field]); if (!Number.isInteger(numeric) || numeric < 0) throw new Error('الحدود الرقمية يجب أن تكون أعداداً صحيحة غير سالبة.'); data[field] = numeric } }
+      if (form.startsAt.trim()) data.startsAt = form.startsAt.trim()
+      if (form.endsAt.trim()) data.endsAt = form.endsAt.trim()
+      if (id) await updateRecord(`${pathFor('public/discounts')}/${id}`, data); else await createRecord(pathFor('public/discounts'), data)
+      reset(); setMessage('تم حفظ الخصم في Firebase.')
+    } catch (err) { setMessage(err instanceof Error ? err.message : 'تعذر حفظ الخصم.') } finally { setBusy(false) }
+  }
+  return <><Header eyebrow="العروض" title="الخصومات والكوبونات" description="إدارة كوبونات منظمة؛ السعر والحدود والصلاحية يعاد احتسابها من الخادم عند إنشاء الطلب." /><div className="split-layout"><form className="panel form-panel" onSubmit={save}><h2>{id ? 'تعديل خصم' : 'إضافة خصم'}</h2><Field label="اسم العرض" value={form.name} onChange={value => set('name', value)} /><Field label="الكود" value={form.code} onChange={value => set('code', value)} /><label className="field"><span>النطاق</span><select value={form.scope} onChange={event => set('scope', event.target.value)}><option value="ALL">كل المنتجات</option><option value="PRODUCT">منتج محدد</option><option value="CATEGORY">قسم محدد</option></select></label>{form.scope === 'PRODUCT' && <Field label="معرّف المنتج" value={form.productId} onChange={value => set('productId', value)} />}{form.scope === 'CATEGORY' && <Field label="معرّف القسم" value={form.categoryId} onChange={value => set('categoryId', value)} />}<label className="field"><span>نوع الخصم</span><select value={form.discountType} onChange={event => set('discountType', event.target.value)}><option value="PERCENT">نسبة مئوية</option><option value="FIXED">مبلغ ثابت بالدينار</option></select></label><Field label="القيمة" type="number" value={form.value} onChange={value => set('value', value)} /><Field label="الحد الأدنى للطلب" type="number" value={form.minOrderTotal} onChange={value => set('minOrderTotal', value)} /><Field label="أقصى خصم" type="number" value={form.maxDiscount} onChange={value => set('maxDiscount', value)} /><Field label="أقصى عدد استخدامات" type="number" value={form.maxUses} onChange={value => set('maxUses', value)} /><Field label="يبدأ في (ISO اختياري)" value={form.startsAt} onChange={value => set('startsAt', value)} /><Field label="ينتهي في (ISO اختياري)" value={form.endsAt} onChange={value => set('endsAt', value)} /><label className="field"><span>مفعل</span><select value={String(form.active)} onChange={event => set('active', event.target.value === 'true')}><option value="true">نعم</option><option value="false">لا</option></select></label><div className="form-actions"><Save busy={busy} />{id && <button type="button" className="secondary" onClick={reset}>إلغاء</button>}</div>{message && <p className="form-message">{message}</p>}</form><RecordList title="الخصومات الحالية" items={items} error={error} onEdit={item => { setId(item.id!); setForm({ name: valueText(item.name), code: valueText(item.code), scope: valueText(item.scope || 'ALL'), productId: valueText(item.productId), categoryId: valueText(item.categoryId), discountType: valueText(item.discountType || 'PERCENT'), value: valueText(item.value), minOrderTotal: valueText(item.minOrderTotal), maxDiscount: valueText(item.maxDiscount), maxUses: valueText(item.maxUses), startsAt: valueText(item.startsAt), endsAt: valueText(item.endsAt), active: item.active !== false }) }} onDelete={itemId => deleteRecord(`${pathFor('public/discounts')}/${itemId}`)} /></div></>
+}
 export function InventoryPage() { return <CollectionPage config={crud.inventory} /> }
 export function DeliveryPage() {
   const { items, error } = useMap<Row>(pathFor('public/delivery'))
