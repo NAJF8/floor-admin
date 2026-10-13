@@ -28,7 +28,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: mkdir -p dist/admin && cp dist/index.html dist/admin/index.html
+      - name: Prepare Pages route fallbacks
+        shell: bash
+        run: |
+          routes=(admin categories products orders inventory discounts customers delivery homepage settings ai staff reports import-export not-found)
+          for route in "${routes[@]}"; do
+            mkdir -p "dist/$route"
+            cp dist/index.html "dist/$route/index.html"
+          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

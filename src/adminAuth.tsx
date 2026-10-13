@@ -3,33 +3,11 @@ import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebas
 import { get, ref } from 'firebase/database'
 import { auth, database, googleProvider, SHOP_ID } from './firebase'
 
-type Membership = { role?: string; active?: boolean; uid?: string; email?: string; permissions?: Record<string, boolean> }
+type Membership = { role?: string; active?: boolean; permissions?: Record<string, boolean> }
+export type AdminSession = { loading: boolean; user: User | null; membership: Membership | null; error: string }
 
-export function useAdminSession() {
-  const [state, setState] = useState<{ loading: boolean; user: User | null; membership: Membership | null; error: string }>({ loading: true, user: null, membership: null, error: '' })
-  useEffect(() => onAuthStateChanged(auth, async (user) => {
-    if (!user) return setState({ loading: false, user: null, membership: null, error: '' })
-    try {
-      const snapshot = await get(ref(database, `shopMemberships/${user.uid}/${SHOP_ID}`))
-      setState({ loading: false, user, membership: snapshot.exists() ? snapshot.val() as Membership : null, error: '' })
-    } catch (error) {
-      setState({ loading: false, user, membership: null, error: error instanceof Error ? error.message : 'تعذر التحقق من العضوية.' })
-    }
-  }), [])
-  return state
-}
+export function useAdminSession() { const [state, setState] = useState<AdminSession>({ loading: true, user: null, membership: null, error: '' }); useEffect(() => onAuthStateChanged(auth, async (user) => { if (!user) return setState({ loading: false, user: null, membership: null, error: '' }); try { const snapshot = await get(ref(database, `shopMemberships/${user.uid}/${SHOP_ID}`)); setState({ loading: false, user, membership: snapshot.exists() ? snapshot.val() as Membership : null, error: '' }) } catch (error) { setState({ loading: false, user, membership: null, error: error instanceof Error ? error.message : 'تعذر الاتصال بخدمة Firebase.' }) } }), []); return state }
 
-function Message({ children }: { children: ReactNode }) {
-  return <main className="auth-page"><section className="auth-card">{children}</section></main>
-}
+function AuthCard({ children }: { children: ReactNode }) { return <main className="login-page"><section className="login-identity"><img src={`${import.meta.env.BASE_URL}alasas-logo.jpg`} alt="شعار الأساس" /><span>AL ASAS COMMERCE</span><h1>من الأساس تبدأ الفكرة</h1><p>مركز إدارة متجرك، حيث تتحول التفاصيل اليومية إلى تجربة تجارية متكاملة.</p></section><section className="login-panel"><div className="login-card">{children}</div><footer>AL ASAS — من الأساس تبدأ الفكرة</footer></section></main> }
 
-export function AdminGate({ children }: { children: ReactNode }) {
-  const state = useAdminSession(); const [busy, setBusy] = useState(false); const [actionError, setActionError] = useState('')
-  const login = async () => { setBusy(true); setActionError(''); try { await signInWithPopup(auth, googleProvider) } catch (error) { setActionError(error instanceof Error ? error.message : 'تعذر تسجيل الدخول عبر Google.') } finally { setBusy(false) } }
-  if (state.loading) return <Message><p>جارٍ التحقق من جلسة Firebase...</p></Message>
-  if (!state.user) return <Message><span className="eyebrow">منطقة الإدارة المحمية</span><h1>تسجيل دخول Google مطلوب</h1><p>لا يمنح تسجيل Google صلاحيات الإدارة تلقائياً. يجب أن توجد عضوية Firebase موثقة لهذا الحساب.</p><button className="primary" disabled={busy} onClick={login}>{busy ? 'جارٍ فتح Google...' : 'تسجيل الدخول عبر Google'}</button>{actionError && <p className="error">{actionError}</p>}</Message>
-  const google = state.user.providerData.some((provider) => provider.providerId === 'google.com')
-  const authorized = google && state.user.emailVerified && Boolean(state.user.email) && state.membership?.active === true && ['SUPER_ADMIN', 'MANAGER', 'EMPLOYEE', 'VIEWER'].includes(state.membership?.role || '')
-  if (!authorized) return <Message><span className="eyebrow">تم التعرف على الحساب</span><h1>لا توجد صلاحية إدارة</h1><p>الحساب: {state.user.email || 'بدون بريد'}</p><p>Firebase UID: <code>{state.user.uid}</code></p><p>لا يتم منح الدور من البريد أو من المتصفح. يجب إنشاء عضوية هذا UID عبر عملية provisioning موثوقة.</p>{state.error && <p className="error">{state.error}</p>}<button className="secondary" onClick={() => signOut(auth)}>تسجيل الخروج</button></Message>
-  return <>{children}</>
-}
+export function AdminGate({ children }: { children: ReactNode }) { const state = useAdminSession(); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const login = async () => { setBusy(true); setError(''); try { await signInWithPopup(auth, googleProvider) } catch (reason) { setError(reason instanceof Error ? reason.message : 'تعذر تسجيل الدخول. حاول مرة أخرى.') } finally { setBusy(false) } }; if (state.loading) return <AuthCard><span className="eyebrow">AL ASAS COMMERCE</span><h2>جارٍ التحقق من الحساب</h2><p>نؤكد صلاحية الجلسة قبل فتح مركز الإدارة.</p><div className="loader" /></AuthCard>; if (!state.user) return <AuthCard><span className="eyebrow">مركز الإدارة المحمي</span><h2>مرحباً بعودتك</h2><p>سجّل الدخول للوصول إلى مركز إدارة متجرك.</p><button className="google-button" disabled={busy} onClick={login}><span className="google-mark">G</span>{busy ? 'تسجيل الدخول جارٍ...' : 'المتابعة باستخدام Google'}</button>{error && <div className="error-box">تعذر تسجيل الدخول. تحقق من الاتصال وحاول مرة أخرى.</div>}</AuthCard>; const authorized = state.user.providerData.some((provider) => provider.providerId === 'google.com') && state.user.emailVerified && Boolean(state.user.email) && state.membership?.active === true && ['SUPER_ADMIN', 'MANAGER', 'EMPLOYEE', 'VIEWER'].includes(state.membership.role || ''); if (!authorized) return <AuthCard><span className="eyebrow">الوصول مرفوض</span><h2>الحساب غير مخوّل</h2><p>هذا الحساب لا يملك عضوية إدارية نشطة لهذا المتجر.</p>{state.error && <div className="error-box">تعذر التحقق من الصلاحية. حاول لاحقاً.</div>}<button className="secondary" onClick={() => signOut(auth)}>تسجيل الخروج</button></AuthCard>; return <>{children}</> }
