@@ -22,5 +22,3 @@ export async function readValue<T>(path: string): Promise<T | null> { if (privat
 async function adminWrite(operation: string, path: string, value?: unknown) { const call = httpsCallable(functions, 'adminWrite'); return (await call({ operation, path, value })).data as { key?: string } }
 export async function createRecord<T extends object>(path: string, value: T) { const result = await adminWrite('create', path, value); return result.key as string }
 export async function updateRecord(path: string, value: object) { await adminWrite('update', path, value) }
-export async function deleteRecord(path: string) { await adminWrite('delete', path) }
-export async function replaceValue(path: string, value: unknown) { await adminWrite('replace', path, value) }
