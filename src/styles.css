@@ -132,3 +132,4 @@ th { color: var(--gray); font-size: .78rem; }
   .login-panel { padding: 26px 16px 34px; }
   .login-card { padding: 24px 18px; }
 }
+.local-only-note{margin:18px 0 12px;color:var(--gray);font-size:.78rem}
