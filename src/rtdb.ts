@@ -4,7 +4,7 @@ import { database, functions, SHOP_ID } from './firebase'
 
 export const shopPath = (suffix: string) => `shops/${SHOP_ID}/${suffix}`
 
-const privatePath = (path: string) => path.includes(`/private/`) || path.endsWith('/private')
+const privatePath = (path: string) => path.includes(`/private/`) || path.endsWith('/private') || /\/shops\/[^/]+\/products(?:\/|$)/.test(`/${path}`)
 async function adminRead(path: string) { const call = httpsCallable(functions, 'adminRead'); return (await call({ path })).data as { data?: unknown } }
 
 export function subscribeMap<T>(path: string, callback: (value: Record<string, T>) => void, onError?: (error: Error) => void): Unsubscribe {
